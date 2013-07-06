@@ -1,0 +1,83 @@
+package net.askarian.MisterErwin.KillCam;
+
+import java.util.ArrayList;
+import net.minecraft.server.v1_6_R1.Packet13PlayerLookMove;
+
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
+import org.bukkit.plugin.java.JavaPlugin;
+
+import com.comphenix.protocol.Packets;
+import com.comphenix.protocol.ProtocolLibrary;
+import com.comphenix.protocol.ProtocolManager;
+import com.comphenix.protocol.events.ConnectionSide;
+import com.comphenix.protocol.events.ListenerPriority;
+import com.comphenix.protocol.events.PacketAdapter;
+import com.comphenix.protocol.events.PacketEvent;
+
+public class KillCam extends JavaPlugin implements Listener {
+
+  public ArrayList<String> cams = new ArrayList<String>();
+
+	public ProtocolManager protocolManager;
+
+	public void onEnable() {
+		this.getServer().getPluginManager().registerEvents(this, this);
+
+		protocolManager = ProtocolLibrary.getProtocolManager();
+
+		protocolManager.addPacketListener(new PacketAdapter(this,
+				ConnectionSide.SERVER_SIDE, ListenerPriority.NORMAL,
+				Packets.Server.PLAYER_LOOK_MOVE, Packets.Server.PLAYER_LOOK, Packets.Server.PLAYER_POSITION, Packets.Server.ENTITY_VELOCITY) {
+			@Override
+			public void onPacketSending(PacketEvent event) {
+				if (cams.contains(event.getPlayer().getName())) {
+					if  (event.getPacketID() == Packets.Server.PLAYER_LOOK_MOVE && ((Packet13PlayerLookMove) event.getPacket()
+							.getHandle()).stance == 1)
+						//Do nothing
+						event.setCancelled(event.isCancelled());
+					else
+						event.setCancelled(true);
+				}
+
+			}
+		});
+
+		protocolManager.addPacketListener(new PacketAdapter(this,
+				ConnectionSide.CLIENT_SIDE, ListenerPriority.NORMAL,
+				Packets.Client.PLAYER_LOOK, Packets.Client.PLAYER_LOOK_MOVE,
+				Packets.Client.PLAYER_POSITION) {
+			@Override
+			public void onPacketReceiving(PacketEvent event) {
+				if (cams.contains(event.getPlayer().getName())) {
+					event.setCancelled(true);
+				}
+			}
+		});
+	}
+
+	
+
+	@EventHandler
+	public void onPlayerDeath(PlayerDeathEvent event) {
+		Player p = event.getEntity();
+
+		if (p.getKiller() == null || p.getKiller().isDead())
+			return;
+
+		//Start Respawner Thread
+		new Respawner(this, p, p.getKiller()).runTaskTimer(this, 5, 5);
+	}
+
+	@EventHandler
+	public void onPlayerRespawn(PlayerRespawnEvent event){
+		if (cams.contains(event.getPlayer().getName()))
+			cams.remove(event.getPlayer().getName());
+		
+		//Reallow packets
+
+	}
+}
