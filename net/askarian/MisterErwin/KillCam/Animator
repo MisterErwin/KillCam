@@ -1,0 +1,57 @@
+package net.askarian.MisterErwin.KillCam;
+
+import net.minecraft.server.v1_6_R1.Packet8UpdateHealth;
+
+import org.bukkit.craftbukkit.v1_6_R1.entity.CraftPlayer;
+import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitRunnable;
+
+
+public class Animator extends BukkitRunnable{
+
+  final Player p;
+	final Player killer;
+	final KillCam plugin;
+	
+	int step = 9;
+	
+	public Animator(KillCam plugin, Player p, Player killer){
+		plugin.cams.add(p.getName());
+		this.p = p;
+		this.killer = killer;
+		this.plugin = plugin;
+		
+		
+	}
+	
+	@Override
+	public void run() {
+		step = step -1;
+		
+		if (step > 6)
+		{
+			//"Respawn" player
+			Utils.respawn(p);
+			return;
+		}
+
+		if (step == 1){
+			//Just a free thread
+			step = -100;
+			return;
+		}
+		if (step < 1){
+			//Send "kill" packet
+			Packet8UpdateHealth dpacket = new Packet8UpdateHealth(0, p.getFoodLevel(), p.getSaturation());
+			((CraftPlayer)p).getHandle().playerConnection.sendPacket(dpacket);
+
+			this.cancel();
+			
+			return;
+		}
+		//Animate
+		Utils.teleporttofront(p, killer, step);
+		
+	}
+
+}
